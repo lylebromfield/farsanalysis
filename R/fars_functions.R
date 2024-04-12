@@ -1,0 +1,162 @@
+#' Read FARS file
+#' 
+#' A function which reads a US National Highway Traffic Safety Administration 
+#' Fatality Analysis Reporting System (FARS) dataset and coerces it to a tibble.
+#' 
+#' @param filename A character string defining the name of a csv file in the 
+#' working directory which the function will read.
+#' 
+#' @return This function returns a tibble dataframe or an error if no filename
+#' with the given name exists in the working directory.
+#' 
+#' @importFrom readr read_csv
+#' @importFrom dplyr tbl_df
+#' 
+#' @examples
+#' \dontrun{
+#' fars_read(accident_2013.csv)
+#' fars_read(accident_2014.csv.bz2)
+#' }
+#' 
+#' @export
+fars_read <- function(filename) {
+  if(!file.exists(filename))
+    stop("file '", filename, "' does not exist")
+  data <- suppressMessages({
+    readr::read_csv(filename, progress = FALSE)
+  })
+  dplyr::tbl_df(data)
+}
+
+#' Make FARS file name
+#' 
+#' Generates a file name dependent on the given FARS file year.
+#' 
+#' @param year A numerical year in the format YYYY.
+#' 
+#' @return A string with the data file name for the corresponding input year and
+#'  the file path within the package.
+#'  
+#' @examples
+#'  \dontrun{
+#'  make_filename(2014)
+#'  }
+#'  
+#' @note Function does not first check if corresponding data file exists.
+#'  
+#' @export
+make_filename <- function(year) {
+  year <- as.integer(year)
+  sprintf("accident_%d.csv.bz2", year)
+}
+
+#' Read years
+#' 
+#' Reads MONTH and year variables from the input dataset and stores them as data
+#' frames in a list.
+#' 
+#' @param years A vector of years (as YYYY).
+#' 
+#' @return A list of tibble data frames for the input years with length equal
+#'  to the input vector and containing only MONTH and year columns.
+#'  
+#' @examples
+#' \dontrun{
+#' fars_read_years(2013)
+#' fars_read_years(c(2013,2014,2015))
+#' }
+#' 
+#' @importFrom magrittr  %>% 
+#' @importFrom dplyr mutate
+#' @importFrom dplyr select
+#' 
+#' @note An error will occur if year number is invalid.
+#' 
+#' @export
+fars_read_years <- function(years) {
+  lapply(years, function(year) {
+    file <- make_filename(year)
+    tryCatch({
+      dat <- fars_read(file)
+      dplyr::mutate(dat, year = year) %>% 
+        dplyr::select(MONTH, year)
+    }, error = function(e) {
+      warning("invalid year: ", year)
+      return(NULL)
+    })
+  })
+}
+
+#' Summarise years
+#' 
+#' Summarises the accidents by month and year for the tibble data frames
+#' imported by \code{fars_read_years}.
+#' 
+#' @param years A vector of years (as YYYY).
+#' 
+#' @return A tibble data frame containing the number of accidents with months
+#' as rows and years as columns.
+#' 
+#' @examples
+#' \dontrun{
+#' fars_summarize_years(2013)
+#' fars_summarize_years(2013:2015)
+#' }
+#' 
+#' @importFrom dplyr bind_rows
+#' @importFrom dplyr group_by
+#' @importFrom dplyr summarize
+#' @importFrom tidyr spread
+#' 
+#' @export
+fars_summarize_years <- function(years) {
+  dat_list <- fars_read_years(years)
+  dplyr::bind_rows(dat_list) %>% 
+    dplyr::group_by(year, MONTH) %>% 
+    dplyr::summarize(n = n()) %>%
+    tidyr::spread(year, n)
+}
+
+#' Plot state map
+#' 
+#' Plots a map of a given state including the locations of accidents in the
+#' given year or returns an error if state number is invalid or message if
+#' there are no accidents for the selected state and year.
+#' 
+#' @param state.num Number of a state included within the FARS dataset.
+#' @param year A year (as YYYY) or vector of years.
+#' 
+#' @return A map with accident locations for the given state and year.
+#' 
+#' @examples
+#' \dontrun{
+#' fars_summarize_years(2013)
+#' fars_summarize_years(c(2013,2014,2015))
+#' fars_summarize_years(2013:2015)
+#' }
+#' 
+#' @importFrom dplyr filter
+#' @importFrom maps map
+#' @importFrom graphics points
+#'
+#' @export
+fars_map_state <- function(state.num, year) {
+  filename <- make_filename(year)
+  data <- fars_read(filename)
+  state.num <- as.integer(state.num)
+  
+  if(!(state.num %in% unique(data$STATE)))
+    stop("invalid STATE number: ", state.num)
+  data.sub <- dplyr::filter(data, STATE == state.num)
+  if(nrow(data.sub) == 0L) {
+    message("no accidents to plot")
+    return(invisible(NULL))
+  }
+  is.na(data.sub$LONGITUD) <- data.sub$LONGITUD > 900
+  is.na(data.sub$LATITUDE) <- data.sub$LATITUDE > 90
+  with(data.sub, {
+    maps::map("state", ylim = range(LATITUDE, na.rm = TRUE),
+              xlim = range(LONGITUD, na.rm = TRUE))
+    graphics::points(LONGITUD, LATITUDE, pch = 46)
+  })
+}

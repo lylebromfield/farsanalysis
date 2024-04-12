@@ -1,0 +1,52 @@
+---
+title: "FARS Data Analysis"
+author: "Lyle Bromfield"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{FARS Data Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(farsanalysis)
+```
+
+The `farsanalysis` package contains a set of functions designed to analyse data from the [US National Highway Traffic Safety Administration's Fatality Analysis Reporting System](https://www.nhtsa.gov) (FARS).
+
+## Data Source
+
+The data files originate from the FARS database and were downloaded from the Building an R Package course resources on Coursera.
+
+## Dependencies
+
+The following packages must be loaded before using the functions provided in this package:
+
+```{r, echo=TRUE, include=TRUE}
+library(dplyr)
+library(maps)
+library(readr)
+library(tidyr)
+```
+
+## Functions
+
+The package contains five functions used to read, name, filter, summarize, and plot the data. See further details in the help documentation.
+
+1. `fars_read`: A function which reads a US National Highway Traffic Safety Administration Fatality Analysis Reporting System (FARS) dataset and coerces it to a tibble.
+
+2. `make_filename`: Generates a file name dependent on the given FARS file year.
+
+3. `fars_read_years`: Reads MONTH and year variables from the input dataset and stores them as data frames in a list.
+
+4. `fars_summarize_years`: #' Summarises the accidents by month and year for the tibble data frames imported by `fars_read_years`.
+
+5. `fars_map_state`: #' Plots a map of a given state including the locations of accidents in the given year or returns an error if state number is invalid or message if there are no accidents for the selected state and year.
